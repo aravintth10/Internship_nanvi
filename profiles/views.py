@@ -8,7 +8,16 @@ from .models import Candidate
 from django.conf import settings
 from PIL import Image
 import numpy as np
-import face_recognition
+from .face_recognition_improved import (
+    initialize_face_recognition, 
+    register_face_from_url, 
+    match_face_from_url, 
+    get_best_match_score,
+    clear_registered_faces,
+    is_initialized,
+    register_face_from_path,
+    match_face_from_path
+)
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 TWITTER_BEARER_TOKEN = os.environ.get("TWITTER_BEARER_TOKEN")
@@ -16,77 +25,53 @@ YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
 
 HEADERS = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
 
-def get_face_encoding(image_file):
-    try:
-        img = face_recognition.load_image_file(image_file)
-        if img.ndim == 2:  # grayscale
-            img = np.stack((img,)*3, axis=-1)
-        elif img.shape[2] == 4:  # RGBA
-            img = img[:, :, :3]
-        img = np.ascontiguousarray(img)
-        encodings = face_recognition.face_encodings(img)
-        if encodings:
-            return encodings[0]
-    except Exception as e:
-        print(f"[DEBUG] Face encoding error: {e}")
-    return None
-
-def get_all_face_encodings(image_file):
-    try:
-        img = face_recognition.load_image_file(image_file)
-        if img.ndim == 2:
-            img = np.stack((img,)*3, axis=-1)
-        elif img.shape[2] == 4:
-            img = img[:, :, :3]
-        img = np.ascontiguousarray(img)
-        encodings = face_recognition.face_encodings(img)
-        return encodings
-    except Exception as e:
-        print(f"[DEBUG] Face encoding error: {e}")
-    return []
-
-def compare_faces(user_encoding, profile_encodings):
-    if user_encoding is None or not profile_encodings:
-        return 0.0
-    distances = [np.linalg.norm(user_encoding - enc) for enc in profile_encodings]
-    if not distances:
-        return 0.0
-    min_distance = min(distances)
-    similarity = max(0, 1 - min_distance / 0.6)
-    return similarity
-
 def calculate_string_similarity(str1, str2):
     # Simple Levenshtein distance-based similarity
     import difflib
     return difflib.SequenceMatcher(None, str1, str2).ratio()
 
-def calculate_confidence_score(profile, search_data, user_face_encoding=None):
+def calculate_confidence_score(profile, search_data, uploaded_image_path=None):
     score = 0
+    
     # Name matching (20%)
     name_score = 0
     if profile.get('full_name') and search_data.get('name'):
         similarity = calculate_string_similarity(profile['full_name'].lower(), search_data['name'].lower())
         name_score = similarity * 20
-    # Image matching (40%)
+    
+    # Image matching (40%) - Improved: always use local loader for uploaded, download profile image to temp file
     image_score = 0
     image_similarity = 0
-    if user_face_encoding is not None and profile.get('image_url'):
+    
+    if uploaded_image_path and profile.get('image_url'):
         try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_img:
-                img_data = requests.get(profile['image_url']).content
-                temp_img.write(img_data)
-                temp_img.flush()
-                profile_face_encodings = get_all_face_encodings(temp_img.name)
-                if profile_face_encodings:
-                    image_similarity = compare_faces(user_face_encoding, profile_face_encodings)
-                    image_score = image_similarity * 40
-                else:
-                    print(f"[DEBUG] No face found in profile image: {profile.get('image_url')}")
-            os.unlink(temp_img.name)
+            # Download profile image to temp file if it's a URL
+            if profile['image_url'].startswith('http'):
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_img:
+                    img_data = requests.get(profile['image_url']).content
+                    temp_img.write(img_data)
+                    temp_img.flush()
+                    profile_image_path = temp_img.name
+            else:
+                profile_image_path = profile['image_url']
+            # Register the profile image
+            clear_registered_faces()
+            register_face_from_path(profile_image_path, profile.get('username', 'unknown'))
+            # Match against the uploaded image
+            matches = match_face_from_path(uploaded_image_path, top_k=1)
+            if matches:
+                image_similarity = matches[0]['score']
+                image_score = image_similarity * 40
+                print(f"[DEBUG] Face match found for {profile.get('username')}: {matches[0]['confidence']:.2f}%")
+            else:
+                print(f"[DEBUG] No face match found for {profile.get('username')}")
+            if profile['image_url'].startswith('http'):
+                os.unlink(profile_image_path)
         except Exception as e:
             print(f"[DEBUG] Image matching error: {e}")
+    
     # Metadata matching (30%)
-    meta_fields = ['city', 'country', 'profession']
+    meta_fields = ['city', 'country', 'profession', 'company']
     meta_matches = 0
     total_meta = 0
     for field in meta_fields:
@@ -96,27 +81,62 @@ def calculate_confidence_score(profile, search_data, user_face_encoding=None):
                 meta_matches += 1
             if field == 'profession' and profile.get('bio') and search_data[field].lower() in profile['bio'].lower():
                 meta_matches += 1
+            if field == 'company' and profile.get('company') and search_data[field].lower() in profile['company'].lower():
+                meta_matches += 1
+            if field == 'company' and profile.get('bio') and search_data[field].lower() in profile['bio'].lower():
+                meta_matches += 1
     meta_score = (meta_matches / total_meta) * 30 if total_meta else 0
+    
     # Activity (10%)
     activity_score = 0
     if profile.get('followers_count'):
         activity_score = min(profile['followers_count'] / 1000, 1) * 10
+    
     total_score = name_score + image_score + meta_score + activity_score
+    
     # Boost for strong image match
+    boost = 0
     if image_similarity > 0.9:
-        total_score += 20
+        boost = 20
     elif image_similarity > 0.7:
-        total_score += 10
+        boost = 10
+    
+    total_score += boost
     total_score = min(round(total_score, 2), 100)
-    print(f"[DEBUG] Score breakdown for {profile.get('username')}: name={name_score}, image={image_score}, meta={meta_score}, activity={activity_score}, boost={(20 if image_similarity > 0.9 else 10 if image_similarity > 0.7 else 0)}, total={total_score}")
+    
+    print(f"[DEBUG] Score breakdown for {profile.get('username')}: name={name_score}, image={image_score}, meta={meta_score}, activity={activity_score}, boost={boost}, total={total_score}")
     return total_score
 
-def github_search(full_name, city=None, country=None):
+def github_search(full_name, city=None, country=None, github_url=None):
     headers = {
         'Authorization': f'token {GITHUB_TOKEN}',
         'Accept': 'application/vnd.github.v3+json',
         'User-Agent': 'ProfileSearchApp'
     }
+    profiles = []
+    if github_url and 'github.com/' in github_url:
+        # Extract username from URL
+        username = github_url.rstrip('/').split('/')[-1]
+        user_details_url = f'https://api.github.com/users/{username}'
+        resp = requests.get(user_details_url, headers=headers)
+        print(f"[DEBUG] GitHub direct profile fetch: {user_details_url} -> {resp.status_code}")
+        if resp.ok:
+            user_details = resp.json()
+            profiles.append({
+                'platform': 'GitHub',
+                'username': user_details.get('login'),
+                'full_name': user_details.get('name') or user_details.get('login'),
+                'bio': user_details.get('bio', ''),
+                'location': user_details.get('location', ''),
+                'company': user_details.get('company', ''),
+                'profile_url': user_details.get('html_url'),
+                'image_url': user_details.get('avatar_url'),
+                'followers_count': user_details.get('followers'),
+                'public_repos': user_details.get('public_repos'),
+                'email': user_details.get('email'),
+                'website': user_details.get('blog'),
+            })
+        return profiles
     def do_search(query):
         url = f'https://api.github.com/search/users?q={requests.utils.quote(query)}&per_page=5'
         print(f"[DEBUG] GitHub search URL: {url}")
@@ -264,7 +284,7 @@ def scrape_linkedin_profile(url):
 
 def linkedin_search(name, linkedin_url=None):
     profiles = []
-    if linkedin_url:
+    if linkedin_url and 'linkedin.com/in/' in linkedin_url:
         try:
             profiles.append(scrape_linkedin_profile(linkedin_url))
         except Exception as e:
@@ -370,32 +390,226 @@ def instagram_search(name, instagram_url=None):
 
 def candidate_search(request):
     form = CandidateSearchForm(request.POST or None, request.FILES or None)
-    results = None
-    api_profiles = []
-    user_face_encoding = None
+    results = []
+    uploaded_image_path = None
     if request.method == 'POST' and form.is_valid():
         search_data = form.cleaned_data
-        # Get face encoding from uploaded photo
+        if not is_initialized():
+            initialize_face_recognition()
         if search_data.get('profile_photo'):
-            user_face_encoding = get_face_encoding(search_data['profile_photo'])
-        # Search GitHub
-        api_profiles.extend(github_search(search_data['name'], search_data.get('city'), search_data.get('country')))
-        # Search Twitter
-        api_profiles.extend(twitter_search(search_data['name']))
-        # Search YouTube
-        api_profiles.extend(youtube_search(search_data['name']))
-        # Search LinkedIn
-        api_profiles.extend(linkedin_search(search_data['name'], search_data.get('linkedin_profile')))
-        # Search Facebook
-        api_profiles.extend(facebook_search(search_data['name']))
-        # Search Instagram
-        api_profiles.extend(instagram_search(search_data['name']))
-        # Calculate confidence score
-        for profile in api_profiles:
-            profile['confidence'] = calculate_confidence_score(profile, search_data, user_face_encoding)
-        # Sort by confidence
-        api_profiles.sort(key=lambda x: x['confidence'], reverse=True)
-        results = api_profiles
+            try:
+                uploaded_image_path = f"uploads/{search_data['profile_photo'].name}"
+                os.makedirs("uploads", exist_ok=True)
+                with open(uploaded_image_path, 'wb+') as destination:
+                    for chunk in search_data['profile_photo'].chunks():
+                        destination.write(chunk)
+                print(f"[DEBUG] Uploaded image saved to: {uploaded_image_path}")
+            except Exception as e:
+                print(f"[DEBUG] Error saving uploaded image: {e}")
+                uploaded_image_path = None
+        # Deduplication sets
+        seen_profiles = set()
+        def dedup_key(profile, platform):
+            username = (profile.get('username') or '').strip().lower()
+            url = (profile.get('profile_url') or '').strip().lower()
+            return f"{platform}:{username or url}"
+        # GitHub
+        github_profiles = github_search(
+            search_data['name'],
+            search_data.get('city'),
+            search_data.get('country'),
+            search_data.get('github_profile')
+        )
+        direct_github_url = (search_data.get('github_profile') or '').strip().lower()
+        direct_github_username = ''
+        for profile in github_profiles:
+            key = dedup_key(profile, 'GitHub')
+            if direct_github_url and (profile.get('profile_url','').strip().lower() == direct_github_url or profile.get('username','').strip().lower() in direct_github_url):
+                direct_github_username = profile.get('username','').strip().lower()
+                if key not in seen_profiles:
+                    profile['confidence'] = calculate_confidence_score(profile, search_data, uploaded_image_path)
+                    profile['platform_display'] = 'GitHub'
+                    results.append(profile)
+                    seen_profiles.add(key)
+                continue
+            if key not in seen_profiles:
+                profile['confidence'] = calculate_confidence_score(profile, search_data, uploaded_image_path)
+                profile['platform_display'] = 'GitHub'
+                results.append(profile)
+                seen_profiles.add(key)
+        if not github_profiles:
+            results.append({
+                'platform': 'GitHub',
+                'username': '',
+                'full_name': '',
+                'bio': '',
+                'company': '',
+                'location': '',
+                'profile_url': '',
+                'image_url': '',
+                'followers_count': None,
+                'public_repos': None,
+                'email': None,
+                'website': None,
+                'confidence': 0,
+                'platform_display': 'GitHub',
+                'error': 'No public GitHub user found for this name.'
+            })
+        # LinkedIn
+        linkedin_profiles = linkedin_search(
+            search_data['name'],
+            search_data.get('linkedin_profile')
+        )
+        direct_linkedin_url = (search_data.get('linkedin_profile') or '').strip().lower()
+        direct_linkedin_username = ''
+        for profile in linkedin_profiles:
+            key = dedup_key(profile, 'LinkedIn')
+            if direct_linkedin_url and (profile.get('profile_url','').strip().lower() == direct_linkedin_url or profile.get('username','').strip().lower() in direct_linkedin_url):
+                direct_linkedin_username = profile.get('username','').strip().lower()
+                if key not in seen_profiles:
+                    profile['confidence'] = calculate_confidence_score(profile, search_data, uploaded_image_path)
+                    profile['platform_display'] = 'LinkedIn'
+                    results.append(profile)
+                    seen_profiles.add(key)
+                continue
+            if key not in seen_profiles:
+                profile['confidence'] = calculate_confidence_score(profile, search_data, uploaded_image_path)
+                profile['platform_display'] = 'LinkedIn'
+                results.append(profile)
+                seen_profiles.add(key)
+        if not linkedin_profiles and search_data.get('linkedin_profile'):
+            key = f"LinkedIn:{direct_linkedin_url}"
+            if key not in seen_profiles:
+                results.append({
+                    'platform': 'LinkedIn',
+                    'username': '',
+                    'full_name': '',
+                    'bio': '',
+                    'company': '',
+                    'location': '',
+                    'profile_url': search_data.get('linkedin_profile'),
+                    'image_url': '',
+                    'followers_count': None,
+                    'public_repos': None,
+                    'email': None,
+                    'website': None,
+                    'confidence': 0,
+                    'platform_display': 'LinkedIn',
+                    'error': 'Could not fetch LinkedIn profile details. Click to view profile.'
+                })
+                seen_profiles.add(key)
+        # Twitter
+        twitter_profiles = twitter_search(search_data['name'])
+        twitter_error = None
+        if not twitter_profiles:
+            twitter_error = 'No public Twitter user found for this name.'
+        for profile in twitter_profiles:
+            key = dedup_key(profile, 'Twitter')
+            if key not in seen_profiles:
+                profile['confidence'] = calculate_confidence_score(profile, search_data, uploaded_image_path)
+                profile['platform_display'] = 'Twitter'
+                results.append(profile)
+                seen_profiles.add(key)
+        # If Twitter API rate-limited, show error
+        if twitter_profiles == [] and '429' in str(twitter_error):
+            results.append({
+                'platform': 'Twitter',
+                'username': '',
+                'full_name': '',
+                'bio': '',
+                'company': '',
+                'location': '',
+                'profile_url': '',
+                'image_url': '',
+                'followers_count': None,
+                'public_repos': None,
+                'email': None,
+                'website': None,
+                'confidence': 0,
+                'platform_display': 'Twitter',
+                'error': 'Twitter API rate limit reached. Please try again later.'
+            })
+        elif not twitter_profiles:
+            results.append({
+                'platform': 'Twitter',
+                'username': '',
+                'full_name': '',
+                'bio': '',
+                'company': '',
+                'location': '',
+                'profile_url': '',
+                'image_url': '',
+                'followers_count': None,
+                'public_repos': None,
+                'email': None,
+                'website': None,
+                'confidence': 0,
+                'platform_display': 'Twitter',
+                'error': twitter_error or 'No public Twitter user found for this name.'
+            })
+        # YouTube
+        youtube_profiles = youtube_search(search_data['name'])
+        for profile in youtube_profiles:
+            key = dedup_key(profile, 'YouTube')
+            if key not in seen_profiles:
+                profile['confidence'] = calculate_confidence_score(profile, search_data, uploaded_image_path)
+                profile['platform_display'] = 'YouTube'
+                results.append(profile)
+                seen_profiles.add(key)
+        # Facebook
+        facebook_profiles = facebook_search(search_data['name'])
+        if not facebook_profiles:
+            results.append({
+                'platform': 'Facebook',
+                'username': '',
+                'full_name': '',
+                'bio': '',
+                'company': '',
+                'location': '',
+                'profile_url': '',
+                'image_url': '',
+                'followers_count': None,
+                'public_repos': None,
+                'email': None,
+                'website': None,
+                'confidence': 0,
+                'platform_display': 'Facebook',
+                'error': 'No public Facebook profile found for this name.'
+            })
+        for profile in facebook_profiles:
+            key = dedup_key(profile, 'Facebook')
+            if key not in seen_profiles:
+                profile['confidence'] = calculate_confidence_score(profile, search_data, uploaded_image_path)
+                profile['platform_display'] = 'Facebook'
+                results.append(profile)
+                seen_profiles.add(key)
+        # Instagram
+        instagram_profiles = instagram_search(search_data['name'])
+        if not instagram_profiles:
+            results.append({
+                'platform': 'Instagram',
+                'username': '',
+                'full_name': '',
+                'bio': '',
+                'company': '',
+                'location': '',
+                'profile_url': '',
+                'image_url': '',
+                'followers_count': None,
+                'public_repos': None,
+                'email': None,
+                'website': None,
+                'confidence': 0,
+                'platform_display': 'Instagram',
+                'error': 'No public Instagram profile found for this name.'
+            })
+        for profile in instagram_profiles:
+            key = dedup_key(profile, 'Instagram')
+            if key not in seen_profiles:
+                profile['confidence'] = calculate_confidence_score(profile, search_data, uploaded_image_path)
+                profile['platform_display'] = 'Instagram'
+                results.append(profile)
+                seen_profiles.add(key)
         # Optionally save the search locally
         if search_data.get('profile_photo'):
             Candidate.objects.create(**search_data)

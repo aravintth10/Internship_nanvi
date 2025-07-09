@@ -37,6 +37,10 @@
                 {{ form.profession }}
             </div>
             <div class="mb-3">
+                <label for="id_company" class="form-label">Company</label>
+                {{ form.company }}
+            </div>
+            <div class="mb-3">
                 <label for="id_date_of_birth" class="form-label">Date of Birth</label>
                 {{ form.date_of_birth }}
             </div>
@@ -61,28 +65,42 @@
     {% if results is not None %}
         <h4 class="mt-5">Search Results</h4>
         {% if results %}
-            <div class="row">
-                {% for candidate in results %}
-                    <div class="col-md-4 mt-3">
-                        <div class="card h-100">
+            {% regroup results by platform_display as platform_groups %}
+            {% for group in platform_groups %}
+                <h5 class="mt-4">{{ group.grouper }}</h5>
+                {% for candidate in group.list %}
+                    <div class="card mb-3">
+                        <div class="row g-0">
                             {% if candidate.image_url %}
-                                <img src="{{ candidate.image_url }}" class="card-img-top" alt="Profile Photo">
+                                <div class="col-md-3 d-flex align-items-center justify-content-center">
+                                    <img src="{{ candidate.image_url }}" class="img-fluid rounded-start" alt="Profile Photo" style="max-height: 120px;">
+                                </div>
                             {% endif %}
-                            <div class="card-body">
-                                <h5 class="card-title">{{ candidate.full_name }}</h5>
-                                <p class="mb-1"><strong>Platform:</strong> {{ candidate.platform }}</p>
-                                <p class="mb-1"><strong>Username:</strong> {{ candidate.username }}</p>
-                                <p class="mb-1"><strong>Bio:</strong> {{ candidate.bio|default:'-' }}</p>
-                                <p class="mb-1"><strong>Company:</strong> {{ candidate.company|default:'-' }}</p>
-                                <p class="mb-1"><strong>Location:</strong> {{ candidate.location|default:'-' }}</p>
-                                <p class="mb-1"><strong>Followers:</strong> {{ candidate.followers_count|default:'-' }}</p>
-                                <p class="mb-1"><strong>Confidence Score:</strong> {{ candidate.confidence }}</p>
-                                <a href="{{ candidate.profile_url }}" class="btn btn-outline-primary btn-sm mt-2" target="_blank">View Profile</a>
+                            <div class="col-md-9">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ candidate.full_name|default:'-' }}</h5>
+                                    <p class="mb-1"><strong>Platform:</strong> {{ candidate.platform_display|default:candidate.platform }}</p>
+                                    <p class="mb-1"><strong>Username:</strong> {{ candidate.username|default:'-' }}</p>
+                                    <p class="mb-1"><strong>Bio:</strong> {{ candidate.bio|default:'-' }}</p>
+                                    <p class="mb-1"><strong>Company:</strong> {{ candidate.company|default:'-' }}</p>
+                                    <p class="mb-1"><strong>Location:</strong> {{ candidate.location|default:'-' }}</p>
+                                    <p class="mb-1"><strong>Followers:</strong> {{ candidate.followers_count|default:'-' }}</p>
+                                    <p class="mb-1"><strong>Confidence Score:</strong> {{ candidate.confidence|default:'0' }}</p>
+                                    {% if candidate.error %}
+                                        <div class="alert alert-warning p-2 mt-2">{{ candidate.error }}</div>
+                                    {% endif %}
+                                    {% if candidate.profile_url %}
+                                        <a href="{{ candidate.profile_url }}" class="btn btn-outline-primary btn-sm mt-2" target="_blank">View Profile</a>
+                                    {% endif %}
+                                    {% if candidate.profile_url and candidate.confidence == 0 %}
+                                        <span class="badge bg-info text-dark mt-2">Direct Link Provided</span>
+                                    {% endif %}
+                                </div>
                             </div>
                         </div>
                     </div>
                 {% endfor %}
-            </div>
+            {% endfor %}
         {% else %}
             <div class="alert alert-warning mt-3">No candidates found.</div>
         {% endif %}

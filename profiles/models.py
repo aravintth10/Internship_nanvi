@@ -13,6 +13,7 @@ class Candidate(models.Model):
     secondary_email = models.EmailField(blank=True, null=True)
     linkedin_profile = models.URLField(blank=True, null=True)
     github_profile = models.URLField(blank=True, null=True)
+    company = models.CharField(max_length=255, blank=True, null=True)
 
     def __str__(self):
         return self.name
