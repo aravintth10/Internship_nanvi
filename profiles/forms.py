@@ -7,7 +7,7 @@ class CandidateSearchForm(forms.ModelForm):
         model = Candidate
         fields = [
             'name', 'profile_photo', 'country', 'city', 'profession', 'date_of_birth',
-            'primary_email', 'secondary_email', 'linkedin_profile', 'github_profile', 'company'
+            'primary_email', 'secondary_email', 'linkedin_profile', 'github_profile', 'facebook_profile', 'instagram_profile', 'twitter_profile', 'youtube_profile', 'pinterest_profile', 'reddit_profile', 'medium_profile', 'quora_profile', 'company'
         ]
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter full name'}),
@@ -20,4 +20,12 @@ class CandidateSearchForm(forms.ModelForm):
             'secondary_email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Secondary email (optional)'}),
             'linkedin_profile': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://linkedin.com/in/username'}),
             'github_profile': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://github.com/username'}),
+            'facebook_profile': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://facebook.com/username'}),
+            'instagram_profile': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://instagram.com/username'}),
+            'twitter_profile': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://twitter.com/username'}),
+            'youtube_profile': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://youtube.com/@username'}),
+            'pinterest_profile': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://pinterest.com/username'}),
+            'reddit_profile': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://reddit.com/user/username'}),
+            'medium_profile': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://medium.com/@username'}),
+            'quora_profile': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://quora.com/profile/username'}),
         } 

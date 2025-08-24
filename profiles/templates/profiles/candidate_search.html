@@ -4,108 +4,664 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Profile Search & Matching</title>
+    <title>Person Profile Tracker - Advanced Search & Matching</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="{% static 'css/custom.css' %}" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary-color: #f8fafc;
+            --accent-color: #06b6d4;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--text-primary);
+        }
+
+        .main-container {
+            padding: 2rem 0;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .search-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: var(--shadow-lg);
+            border: none;
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .search-card .card-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            color: white;
+            border: none;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .search-card .card-header h2 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .search-card .card-header p {
+            opacity: 0.9;
+            margin: 0;
+        }
+
+        .search-card .card-body {
+            padding: 2rem;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .form-control, .form-select {
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: #f8fafc;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            background: white;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            border: none;
+            border-radius: 12px;
+            padding: 1rem 2rem;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary-color));
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .file-upload-area {
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            background: #f8fafc;
+            cursor: pointer;
+        }
+
+        .file-upload-area:hover {
+            border-color: var(--primary-color);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .file-upload-area i {
+            font-size: 2rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        .results-section {
+            margin-top: 3rem;
+        }
+
+        .results-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: white;
+        }
+
+        .results-header h3 {
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .platform-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .platform-github { background: #24292e; color: white; }
+        .platform-linkedin { background: #0077b5; color: white; }
+        .platform-twitter { background: #1da1f2; color: white; }
+        .platform-facebook { background: #1877f2; color: white; }
+        .platform-instagram { background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); color: white; }
+        .platform-youtube { background: #ff0000; color: white; }
+
+        .profile-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: var(--shadow-md);
+            border: none;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            margin-bottom: 1.5rem;
+        }
+
+        .profile-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .profile-image {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--border-color);
+        }
+
+        .confidence-score {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .confidence-high { background: rgba(16, 185, 129, 0.1); color: var(--success-color); }
+        .confidence-medium { background: rgba(245, 158, 11, 0.1); color: var(--warning-color); }
+        .confidence-low { background: rgba(239, 68, 68, 0.1); color: var(--danger-color); }
+
+        .profile-stats {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 0.5rem;
+            background: var(--secondary-color);
+            border-radius: 8px;
+            flex: 1;
+        }
+
+        .stat-value {
+            font-weight: 700;
+            color: var(--primary-color);
+            font-size: 1.1rem;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .slide-in {
+            animation: slideIn 0.6s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .alert {
+            border-radius: 12px;
+            border: none;
+            padding: 1rem 1.5rem;
+        }
+
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning-color);
+            border-left: 4px solid var(--warning-color);
+        }
+
+        .btn-outline-primary {
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn-outline-primary:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        .badge {
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            font-weight: 500;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .search-card .card-body {
+                padding: 1.5rem;
+            }
+            
+            .profile-stats {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+        }
+    </style>
 </head>
 <body>
-<div class="container mt-5">
-    <h2 class="mb-4">Profile Search & Matching</h2>
-    <div class="card p-4">
-        <form method="post" enctype="multipart/form-data">
-            {% csrf_token %}
-            <div class="mb-3">
-                <label for="id_name" class="form-label">Full Name</label>
-                {{ form.name }}
+    <div class="main-container">
+        <div class="container">
+            <!-- Header -->
+            <div class="header fade-in">
+                <h1><i class="fas fa-search"></i> Person Profile Tracker</h1>
+                <p>Advanced search and matching across multiple social platforms with AI-powered confidence scoring</p>
             </div>
-            <div class="mb-3">
-                <label for="id_profile_photo" class="form-label">Profile Photo</label>
-                {{ form.profile_photo }}
-                <div class="form-text">Upload JPG or PNG (max 5MB)</div>
-            </div>
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label for="id_country" class="form-label">Country</label>
-                    {{ form.country }}
+
+            <!-- Search Form -->
+            <div class="search-card slide-in">
+                <div class="card-header">
+                    <h2><i class="fas fa-user-search"></i> Search Candidate Profiles</h2>
+                    <p>Enter candidate information to find matching profiles across social media platforms</p>
                 </div>
-                <div class="col-md-6 mb-3">
-                    <label for="id_city" class="form-label">City</label>
-                    {{ form.city }}
-                </div>
-            </div>
-            <div class="mb-3">
-                <label for="id_profession" class="form-label">Profession/Industry</label>
-                {{ form.profession }}
-            </div>
-            <div class="mb-3">
-                <label for="id_company" class="form-label">Company</label>
-                {{ form.company }}
-            </div>
-            <div class="mb-3">
-                <label for="id_date_of_birth" class="form-label">Date of Birth</label>
-                {{ form.date_of_birth }}
-            </div>
-            <div class="mb-3">
-                <label for="id_primary_email" class="form-label">Email Addresses</label>
-                {{ form.primary_email }}
-            </div>
-            <div class="mb-3">
-                {{ form.secondary_email }}
-            </div>
-            <div class="mb-3">
-                <label for="id_linkedin_profile" class="form-label">LinkedIn Profile</label>
-                {{ form.linkedin_profile }}
-            </div>
-            <div class="mb-3">
-                <label for="id_github_profile" class="form-label">GitHub Profile</label>
-                {{ form.github_profile }}
-            </div>
-            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Search Profiles</button>
-        </form>
-    </div>
-    {% if results is not None %}
-        <h4 class="mt-5">Search Results</h4>
-        {% if results %}
-            {% regroup results by platform_display as platform_groups %}
-            {% for group in platform_groups %}
-                <h5 class="mt-4">{{ group.grouper }}</h5>
-                {% for candidate in group.list %}
-                    <div class="card mb-3">
-                        <div class="row g-0">
-                            {% if candidate.image_url %}
-                                <div class="col-md-3 d-flex align-items-center justify-content-center">
-                                    <img src="{{ candidate.image_url }}" class="img-fluid rounded-start" alt="Profile Photo" style="max-height: 120px;">
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data" id="searchForm">
+                        {% csrf_token %}
+                        
+                        <!-- Full Name -->
+                        <div class="mb-4">
+                            <label for="id_name" class="form-label">
+                                <i class="fas fa-user"></i> Full Name *
+                            </label>
+                            {{ form.name }}
+                        </div>
+
+                        <!-- Profile Photo -->
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class="fas fa-camera"></i> Profile Photo
+                            </label>
+                            <div class="file-upload-area" onclick="document.getElementById('id_profile_photo').click()">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <h5>Upload Profile Photo</h5>
+                                <p class="text-muted">Click to upload or drag and drop</p>
+                                <small class="text-muted">JPG, PNG (max 5MB)</small>
+                            </div>
+                            {{ form.profile_photo }}
+                        </div>
+
+                        <!-- Location -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="id_country" class="form-label">
+                                    <i class="fas fa-globe"></i> Country
+                                </label>
+                                {{ form.country }}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_city" class="form-label">
+                                    <i class="fas fa-map-marker-alt"></i> City
+                                </label>
+                                {{ form.city }}
+                            </div>
+                        </div>
+
+                        <!-- Profession & Company -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="id_profession" class="form-label">
+                                    <i class="fas fa-briefcase"></i> Profession/Industry
+                                </label>
+                                {{ form.profession }}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_company" class="form-label">
+                                    <i class="fas fa-building"></i> Company
+                                </label>
+                                {{ form.company }}
+                            </div>
+                        </div>
+
+                        <!-- Date of Birth -->
+                        <div class="mb-4">
+                            <label for="id_date_of_birth" class="form-label">
+                                <i class="fas fa-calendar"></i> Date of Birth
+                            </label>
+                            {{ form.date_of_birth }}
+                        </div>
+
+                        <!-- Email Addresses -->
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class="fas fa-envelope"></i> Email Addresses
+                            </label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    {{ form.primary_email }}
                                 </div>
-                            {% endif %}
-                            <div class="col-md-9">
-                                <div class="card-body">
-                                    <h5 class="card-title">{{ candidate.full_name|default:'-' }}</h5>
-                                    <p class="mb-1"><strong>Platform:</strong> {{ candidate.platform_display|default:candidate.platform }}</p>
-                                    <p class="mb-1"><strong>Username:</strong> {{ candidate.username|default:'-' }}</p>
-                                    <p class="mb-1"><strong>Bio:</strong> {{ candidate.bio|default:'-' }}</p>
-                                    <p class="mb-1"><strong>Company:</strong> {{ candidate.company|default:'-' }}</p>
-                                    <p class="mb-1"><strong>Location:</strong> {{ candidate.location|default:'-' }}</p>
-                                    <p class="mb-1"><strong>Followers:</strong> {{ candidate.followers_count|default:'-' }}</p>
-                                    <p class="mb-1"><strong>Confidence Score:</strong> {{ candidate.confidence|default:'0' }}</p>
-                                    {% if candidate.error %}
-                                        <div class="alert alert-warning p-2 mt-2">{{ candidate.error }}</div>
-                                    {% endif %}
-                                    {% if candidate.profile_url %}
-                                        <a href="{{ candidate.profile_url }}" class="btn btn-outline-primary btn-sm mt-2" target="_blank">View Profile</a>
-                                    {% endif %}
-                                    {% if candidate.profile_url and candidate.confidence == 0 %}
-                                        <span class="badge bg-info text-dark mt-2">Direct Link Provided</span>
-                                    {% endif %}
+                                <div class="col-md-6">
+                                    {{ form.secondary_email }}
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Social Media URLs -->
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class="fas fa-share-alt"></i> Social Media Profiles
+                            </label>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="id_linkedin_profile" class="form-label">
+                                        <i class="fab fa-linkedin text-primary"></i> LinkedIn
+                                    </label>
+                                    {{ form.linkedin_profile }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="id_github_profile" class="form-label">
+                                        <i class="fab fa-github"></i> GitHub
+                                    </label>
+                                    {{ form.github_profile }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Search Button -->
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-primary btn-lg" id="searchBtn">
+                                <i class="fas fa-search"></i> 
+                                <span id="searchText">Search Profiles</span>
+                                <span id="searchLoading" style="display: none;">
+                                    <div class="loading-spinner"></div> Searching...
+                                </span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            {% if results is not None %}
+                <div class="results-section fade-in">
+                    <div class="results-header">
+                        <h3><i class="fas fa-chart-line"></i> Search Results</h3>
+                        <p>Found {{ results|length }} potential matches across platforms</p>
                     </div>
-                {% endfor %}
-            {% endfor %}
-        {% else %}
-            <div class="alert alert-warning mt-3">No candidates found.</div>
-        {% endif %}
-    {% endif %}
-</div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+                    {% if results %}
+                        {% regroup results by platform_display as platform_groups %}
+                        {% for group in platform_groups %}
+                            <div class="platform-section slide-in">
+                                <h4 class="mb-3">
+                                    <span class="platform-badge platform-{{ group.grouper|lower }}">
+                                        <i class="fab fa-{{ group.grouper|lower }}"></i> {{ group.grouper }}
+                                    </span>
+                                    <span class="text-white ms-2">({{ group.list|length }} results)</span>
+                                </h4>
+                                
+                                {% for candidate in group.list %}
+                                    <div class="profile-card">
+                                        <div class="card-body">
+                                            <div class="row align-items-center">
+                                                <div class="col-md-2 text-center">
+                                                    {% if candidate.image_url %}
+                                                        <img src="{{ candidate.image_url }}" class="profile-image" alt="Profile Photo">
+                                                    {% else %}
+                                                        <div class="profile-image bg-light d-flex align-items-center justify-content-center">
+                                                            <i class="fas fa-user text-muted"></i>
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="col-md-7">
+                                                    <h5 class="card-title mb-2">{{ candidate.full_name|default:'Name Not Available' }}</h5>
+                                                    <p class="text-muted mb-2">
+                                                        <i class="fas fa-at"></i> {{ candidate.username|default:'Username not available' }}
+                                                    </p>
+                                                    {% if candidate.bio %}
+                                                        <p class="card-text mb-2">{{ candidate.bio|truncatechars:100 }}</p>
+                                                    {% endif %}
+                                                    
+                                                    <div class="profile-stats">
+                                                        {% if candidate.company %}
+                                                            <div class="stat-item">
+                                                                <div class="stat-value">{{ candidate.company }}</div>
+                                                                <div class="stat-label">Company</div>
+                                                            </div>
+                                                        {% endif %}
+                                                        {% if candidate.location %}
+                                                            <div class="stat-item">
+                                                                <div class="stat-value">{{ candidate.location }}</div>
+                                                                <div class="stat-label">Location</div>
+                                                            </div>
+                                                        {% endif %}
+                                                        {% if candidate.followers_count %}
+                                                            <div class="stat-item">
+                                                                <div class="stat-value">{{ candidate.followers_count|floatformat:0 }}</div>
+                                                                <div class="stat-label">Followers</div>
+                                                            </div>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-3 text-end">
+                                                    <div class="mb-3">
+                                                        {% if candidate.confidence %}
+                                                            {% if candidate.confidence >= 70 %}
+                                                                <span class="confidence-score confidence-high">
+                                                                    <i class="fas fa-star"></i> {{ candidate.confidence|floatformat:0 }}%
+                                                                </span>
+                                                            {% elif candidate.confidence >= 40 %}
+                                                                <span class="confidence-score confidence-medium">
+                                                                    <i class="fas fa-star-half-alt"></i> {{ candidate.confidence|floatformat:0 }}%
+                                                                </span>
+                                                            {% else %}
+                                                                <span class="confidence-score confidence-low">
+                                                                    <i class="fas fa-star"></i> {{ candidate.confidence|floatformat:0 }}%
+                                                                </span>
+                                                            {% endif %}
+                                                        {% endif %}
+                                                    </div>
+                                                    
+                                                    {% if candidate.error %}
+                                                        <div class="alert alert-warning mb-2">
+                                                            <i class="fas fa-exclamation-triangle"></i> {{ candidate.error }}
+                                                        </div>
+                                                    {% endif %}
+                                                    
+                                                    {% if candidate.profile_url %}
+                                                        <a href="{{ candidate.profile_url }}" class="btn btn-outline-primary btn-sm" target="_blank">
+                                                            <i class="fas fa-external-link-alt"></i> View Profile
+                                                        </a>
+                                                    {% endif %}
+                                                    
+                                                    {% if candidate.profile_url and candidate.confidence == 0 %}
+                                                        <span class="badge bg-info text-dark mt-2">
+                                                            <i class="fas fa-link"></i> Direct Link
+                                                        </span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-search"></i>
+                            <h4>No Results Found</h4>
+                            <p>Try adjusting your search criteria or adding more information about the candidate.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'js/enhancements.js' %}"></script>
+    <script>
+        // File upload handling
+        document.getElementById('id_profile_photo').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const uploadArea = document.querySelector('.file-upload-area');
+                uploadArea.innerHTML = `
+                    <i class="fas fa-check-circle text-success"></i>
+                    <h5>File Selected</h5>
+                    <p class="text-success">${file.name}</p>
+                    <small class="text-muted">${(file.size / 1024 / 1024).toFixed(2)} MB</small>
+                `;
+            }
+        });
+
+        // Form submission handling
+        document.getElementById('searchForm').addEventListener('submit', function() {
+            const searchBtn = document.getElementById('searchBtn');
+            const searchText = document.getElementById('searchText');
+            const searchLoading = document.getElementById('searchLoading');
+            
+            searchBtn.disabled = true;
+            searchText.style.display = 'none';
+            searchLoading.style.display = 'inline-block';
+        });
+
+        // Drag and drop functionality
+        const uploadArea = document.querySelector('.file-upload-area');
+        
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.style.borderColor = 'var(--primary-color)';
+            this.style.background = 'rgba(99, 102, 241, 0.05)';
+        });
+        
+        uploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.style.borderColor = 'var(--border-color)';
+            this.style.background = '#f8fafc';
+        });
+        
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                document.getElementById('id_profile_photo').files = files;
+                const file = files[0];
+                this.innerHTML = `
+                    <i class="fas fa-check-circle text-success"></i>
+                    <h5>File Uploaded</h5>
+                    <p class="text-success">${file.name}</p>
+                    <small class="text-muted">${(file.size / 1024 / 1024).toFixed(2)} MB</small>
+                `;
+            }
+        });
+
+        // Smooth scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
 </body>
 </html> 
