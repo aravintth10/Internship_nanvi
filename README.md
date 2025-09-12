@@ -1,4 +1,4 @@
-# Person Profile Tracker v1.0
+# Person Profile Tracker v3.0
 
 A comprehensive Django-based web application for searching and matching candidate profiles across multiple social media platforms and professional networks.
 
